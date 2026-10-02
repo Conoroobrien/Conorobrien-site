@@ -7,7 +7,7 @@
 <meta name="description" content="The personal website of Conor O'Brien.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #0c1612;
@@ -41,8 +41,14 @@
     display: flex; flex-direction: column; justify-content: space-between;
     padding: max(28px, env(safe-area-inset-top)) clamp(24px, 5vw, 64px) max(28px, env(safe-area-inset-bottom));
   }
-  header { display: flex; justify-content: space-between; align-items: baseline; }
-  .mark { font-family: var(--serif); font-size: 1.05rem; letter-spacing: .01em; }
+  header { display: flex; justify-content: space-between; align-items: center; }
+  .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+  .logo-mark {
+    width: 34px; height: 34px; border-radius: 7px; background: var(--mist); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-weight: 600; font-size: 16px;
+  }
+  .logo-text { font-family: var(--serif); font-size: 1.05rem; letter-spacing: .01em; }
   nav { display: flex; gap: 28px; }
   nav button, .scene button {
     background: none; border: 0; color: inherit; font: inherit; font-size: .95rem;
@@ -95,8 +101,37 @@
   .sheet li { padding: 12px 0; border-top: 1px solid rgba(233,240,234,.12); font-size: 1.05rem; }
   .sheet li span { display: block; font-size: .88rem; color: rgba(233,240,234,.6); margin-top: 2px; }
 
+
+  /* ---------- Projects dropdown ---------- */
+  .dd { position: relative; }
+  .dd .caret { display: inline-block; font-size: .7em; margin-left: 4px; transition: transform .2s; }
+  .dd.open .caret { transform: rotate(180deg); }
+  .dd-menu {
+    position: absolute; right: 0; top: calc(100% + 10px); min-width: 230px; list-style: none;
+    background: rgba(12,22,18,.92); backdrop-filter: blur(14px);
+    border: 1px solid rgba(233,240,234,.16); border-radius: 10px; padding: 6px;
+    opacity: 0; visibility: hidden; transform: translateY(-6px);
+    transition: opacity .18s, transform .18s, visibility 0s linear .18s;
+  }
+  .dd.open .dd-menu { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+  .dd-menu button { display: block; width: 100%; text-align: left; padding: 10px 12px; border: 0; border-radius: 7px; font-size: .95rem; }
+  .dd-menu button:hover { background: rgba(233,240,234,.1); }
+  .dd-menu small { display: block; font-size: .8rem; color: rgba(233,240,234,.6); margin-top: 2px; }
+
+  /* ---------- Project panel content ---------- */
+  .sheet .tagline { font-family: var(--serif); font-style: italic; font-weight: 300; font-size: 1.25rem; color: var(--ember); margin: -12px 0 24px; max-width: 30rem; }
+  .sheet h3 { font-family: var(--serif); font-weight: 400; font-size: 1.25rem; margin: 32px 0 6px; }
+  .btn-visit {
+    display: inline-block; margin-top: 12px; padding: 12px 26px; border-radius: 7px;
+    background: var(--mist); color: var(--ink) !important; font-weight: 500; text-decoration: none;
+    transition: background-color .2s, transform .14s;
+  }
+  .btn-visit:hover { background: #fff; color: var(--ink) !important; }
+  .btn-visit:active { transform: scale(.97); }
+
   @media (max-width: 600px) {
     nav { gap: 18px; }
+    .logo-text { display: none; }
     footer { flex-direction: column; align-items: flex-start; gap: 10px; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -116,10 +151,16 @@
 
 <div class="page">
   <header>
-    <div class="mark">Conor O'Brien</div>
+    <a class="logo" href="#" aria-label="Conor O'Brien, home">
+      <span class="logo-mark">C</span>
+      <span class="logo-text">Conor O'Brien</span>
+    </a>
     <nav>
       <button data-open="about">About</button>
-      <button data-open="elsewhere">Elsewhere</button>
+      <div class="dd" id="dd">
+        <button id="ddBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="ddMenu">Projects <span class="caret" aria-hidden="true">&#9662;</span></button>
+        <ul class="dd-menu" id="ddMenu" role="menu"></ul>
+      </div>
       <button data-open="contact">Contact</button>
     </nav>
   </header>
@@ -149,18 +190,7 @@
   </div>
 </section>
 
-<section class="panel" id="elsewhere" aria-label="Elsewhere">
-  <div class="veil" data-close></div>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="else-h">
-    <button class="close" data-close aria-label="Close">&#10005;</button>
-    <h2 id="else-h">Elsewhere</h2>
-    <ul>
-      <li><a href="#">Project or link one</a><span>One line about it</span></li>
-      <li><a href="#">Project or link two</a><span>One line about it</span></li>
-      <li><a href="#">LinkedIn, Instagram, or anything else</a><span>One line about it</span></li>
-    </ul>
-  </div>
-</section>
+<div id="projectPanels"></div>
 
 <section class="panel" id="contact" aria-label="Contact">
   <div class="veil" data-close></div>
@@ -184,6 +214,35 @@ const CLIPS = [
   // { src: "clips/lake.mp4",   caption: "Lake Travis, sunrise" },
   // { src: "clips/forest.mp4", caption: "Somewhere in the Smokies" },
 ];
+/* ============ EDIT THIS: your projects ============
+   Each project appears in the Projects dropdown and gets its own panel.
+   Add another by copying a block. Leave url empty to hide the link button. */
+const PROJECTS = [
+  {
+    id: "borrowview",
+    name: "BorrowView",
+    blurb: "CRE debt intelligence for borrowers",
+    tagline: "Your debt, finally working for you.",
+    bio: [
+      "BorrowView is a portal for commercial real estate borrowers to see and manage their whole loan portfolio in one place. Lenders have had powerful tools for years; this puts the same visibility in the borrower's hands.",
+      "Each user signs in to a private workspace and tracks their own loans. Portfolio numbers like total debt, weighted rate and covenant breaches are calculated live from the loans they enter."
+    ],
+    applications: [
+      ["Portfolio dashboard", "Every loan, DSCR, LTV, maturity date and covenant status in one view."],
+      ["Covenant monitoring", "Track thresholds so you can act before a breach, not after."],
+      ["Prepayment calculator", "Compare the cost of exiting a loan under different structures."],
+      ["Stress testing", "Model rate increases, NOI drops and vacancy shocks across the portfolio."],
+      ["Lender reporting", "Generate quarterly compliance reports without rebuilding spreadsheets."],
+      ["Reserves & CapEx tracking", "Follow lender reserves, CapEx draws and rate cap expirations."]
+    ],
+    url: "https://borrowview.com/",
+    urlLabel: "Visit BorrowView"
+  },
+  // Copy this block to add another project:
+  // { id: "other", name: "Project name", blurb: "One line", tagline: "", bio: ["Paragraph"],
+  //   applications: [["Use", "Description"]], url: "https://...", urlLabel: "Visit" },
+];
+
 const SECONDS_PER_CLIP = 20; // switch scenes after this long if a clip is short
 /* ===================================================== */
 
@@ -258,18 +317,55 @@ if (CLIPS.length && !reduceMotion) {
 
 /* ---------- Panels ---------- */
 let lastTrigger = null;
-document.querySelectorAll("[data-open]").forEach(btn => btn.addEventListener("click", () => {
-  lastTrigger = btn;
-  const p = document.getElementById(btn.dataset.open);
+function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function openPanel(id, trigger) {
+  closeAll(false);
+  lastTrigger = trigger || null;
+  const p = document.getElementById(id);
   p.classList.add("open");
   p.querySelector(".close").focus();
-}));
-function closeAll() {
-  document.querySelectorAll(".panel.open").forEach(p => p.classList.remove("open"));
-  if (lastTrigger) lastTrigger.focus();
 }
-document.querySelectorAll("[data-close]").forEach(el => el.addEventListener("click", closeAll));
-addEventListener("keydown", e => { if (e.key === "Escape") closeAll(); });
+function closeAll(refocus = true) {
+  document.querySelectorAll(".panel.open").forEach(p => p.classList.remove("open"));
+  if (refocus && lastTrigger) lastTrigger.focus();
+}
+
+/* Build project panels + dropdown items from PROJECTS */
+const menu = document.getElementById("ddMenu");
+const mount = document.getElementById("projectPanels");
+PROJECTS.forEach(pr => {
+  const apps = pr.applications.map(([t, d]) => `<li>${esc(t)}<span>${esc(d)}</span></li>`).join("");
+  const link = pr.url ? `<a class="btn-visit" href="${esc(pr.url)}" target="_blank" rel="noopener">${esc(pr.urlLabel || "Visit")} &#8599;</a>` : "";
+  const sec = document.createElement("section");
+  sec.className = "panel"; sec.id = "proj-" + pr.id; sec.setAttribute("aria-label", pr.name);
+  sec.innerHTML = `
+    <div class="veil" data-close></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="h-${esc(pr.id)}">
+      <button class="close" data-close aria-label="Close">&#10005;</button>
+      <h2 id="h-${esc(pr.id)}">${esc(pr.name)}</h2>
+      ${pr.tagline ? `<p class="tagline">${esc(pr.tagline)}</p>` : ""}
+      ${pr.bio.map(b => `<p>${esc(b)}</p>`).join("")}
+      <h3>Applications</h3>
+      <ul>${apps}</ul>
+      ${link}
+    </div>`;
+  mount.appendChild(sec);
+  const li = document.createElement("li"); li.setAttribute("role", "none");
+  li.innerHTML = `<button type="button" role="menuitem">${esc(pr.name)}<small>${esc(pr.blurb || "")}</small></button>`;
+  li.firstChild.addEventListener("click", e => { setDropdown(false); openPanel("proj-" + pr.id, document.getElementById("ddBtn")); });
+  menu.appendChild(li);
+});
+
+/* Dropdown behavior */
+const dd = document.getElementById("dd"), ddBtn = document.getElementById("ddBtn");
+function setDropdown(open) { dd.classList.toggle("open", open); ddBtn.setAttribute("aria-expanded", open); }
+ddBtn.addEventListener("click", e => { e.stopPropagation(); setDropdown(!dd.classList.contains("open")); });
+document.addEventListener("click", e => { if (!dd.contains(e.target)) setDropdown(false); });
+
+/* Static panels (About, Contact) */
+document.querySelectorAll("[data-open]").forEach(btn => btn.addEventListener("click", () => openPanel(btn.dataset.open, btn)));
+document.addEventListener("click", e => { if (e.target.closest("[data-close]")) closeAll(); });
+addEventListener("keydown", e => { if (e.key === "Escape") { setDropdown(false); closeAll(); } });
 </script>
 </body>
 </html>
