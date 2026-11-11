@@ -59,7 +59,8 @@
   nav button:hover { border-color: var(--mist); }
   :focus-visible { outline: 2px solid var(--ember); outline-offset: 4px; }
 
-  main { max-width: 980px; }
+  main { max-width: 980px; transition: opacity 1.4s ease; }
+  main.faded { opacity: 0; }
   h1 {
     font-family: var(--serif); font-weight: 300;
     font-size: clamp(2.8rem, 8.5vw, 7.5rem); line-height: .98; letter-spacing: -.02em;
@@ -167,8 +168,8 @@
   </header>
 
   <main>
-    <h1>Hi, I'm Conor.</h1>
-    <p class="lede">Welcome to my corner of the internet. Everything moving behind this text is somewhere I've been.</p>
+    <h1>Hi I'm Conor</h1>
+    <p class="lede">Welcome to my life experiences</p>
   </main>
 
   <footer>
@@ -245,6 +246,8 @@ const PROJECTS = [
 ];
 
 const SECONDS_PER_CLIP = 20; // switch scenes after this long if a clip is short
+const TEXT_SHOW_SECONDS = 10;  // how long the intro text stays visible
+const TEXT_CYCLE_SECONDS = 30; // the text returns this often
 /* ===================================================== */
 
 document.getElementById("yr").textContent = new Date().getFullYear();
@@ -278,6 +281,21 @@ function paint(t) {
 }
 requestAnimationFrame(paint);
 
+/* ---------- Intro text: visible 10s, fades, returns every 30s ---------- */
+const intro = document.querySelector("main");
+let textStarted = false;
+function cycleText() {
+  intro.classList.remove("faded");
+  setTimeout(() => intro.classList.add("faded"), TEXT_SHOW_SECONDS * 1000);
+  setTimeout(cycleText, TEXT_CYCLE_SECONDS * 1000);
+}
+function startText() {
+  if (textStarted || reduceMotion) return; // reduced motion: text just stays visible
+  textStarted = true;
+  cycleText();
+}
+setTimeout(startText, 4000); // safety net if the video is slow to load
+
 /* ---------- Video scenes with crossfade ---------- */
 const vids = [document.getElementById("vidA"), document.getElementById("vidB")];
 const caption = document.getElementById("caption");
@@ -292,6 +310,7 @@ function show(i) {
   incoming.oncanplay = () => {
     incoming.oncanplay = null;
     incoming.play().catch(() => {});
+    startText();
     incoming.classList.add("on");
     cv.classList.remove("on");
     outgoing.classList.remove("on");
@@ -312,6 +331,7 @@ if (CLIPS.length && !reduceMotion) {
   nextBtn.addEventListener("click", advance);
 } else {
   nextBtn.hidden = true;
+  startText();
   if (CLIPS.length) { vids[0].src = CLIPS[0].src; vids[0].classList.add("on"); cv.classList.remove("on"); caption.textContent = CLIPS[0].caption || ""; }
 }
 
