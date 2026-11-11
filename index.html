@@ -173,7 +173,7 @@
 
   <footer>
     <div class="scene">
-      <span id="caption">Placeholder scene</span>
+      <span id="caption"></span>
       <button id="next" type="button">Next scene</button>
     </div>
     <div>&copy; <span id="yr"></span> Conor O'Brien</div>
@@ -212,8 +212,8 @@
    Each clip gets a caption shown at the bottom left.
    Leave the list empty to use the animated placeholder. */
 const CLIPS = [
-  // { src: "clips/lake.mp4",   caption: "Lake Travis, sunrise" },
-  // { src: "clips/forest.mp4", caption: "Somewhere in the Smokies" },
+  { src: "clips/clip1.mp4", caption: "" }, // add a caption, e.g. "Lookout Mountain, spring"
+  // { src: "clips/clip2.mp4", caption: "Somewhere in the Smokies" },
 ];
 /* ============ EDIT THIS: your projects ============
    Each project appears in the Projects dropdown and gets its own panel.
@@ -288,7 +288,7 @@ function show(i) {
   const clip = CLIPS[i];
   const incoming = vids[1 - front], outgoing = vids[front];
   incoming.src = clip.src;
-  incoming.loop = false;
+  incoming.loop = CLIPS.length === 1; // a single clip just loops
   incoming.oncanplay = () => {
     incoming.oncanplay = null;
     incoming.play().catch(() => {});
@@ -299,7 +299,7 @@ function show(i) {
     front = 1 - front;
     caption.textContent = clip.caption || "";
     clearTimeout(timer);
-    timer = setTimeout(advance, SECONDS_PER_CLIP * 1000);
+    if (CLIPS.length > 1) timer = setTimeout(advance, SECONDS_PER_CLIP * 1000);
   };
   incoming.onended = advance;
   incoming.onerror = () => { if (CLIPS.length > 1) advance(); };
@@ -312,8 +312,7 @@ if (CLIPS.length && !reduceMotion) {
   nextBtn.addEventListener("click", advance);
 } else {
   nextBtn.hidden = true;
-  if (!CLIPS.length) caption.textContent = "Your footage goes here";
-  else { vids[0].src = CLIPS[0].src; vids[0].classList.add("on"); cv.classList.remove("on"); caption.textContent = CLIPS[0].caption || ""; }
+  if (CLIPS.length) { vids[0].src = CLIPS[0].src; vids[0].classList.add("on"); cv.classList.remove("on"); caption.textContent = CLIPS[0].caption || ""; }
 }
 
 /* ---------- Panels ---------- */
