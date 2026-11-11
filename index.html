@@ -28,6 +28,7 @@
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; opacity: 0; transition: opacity 1.8s ease;
   }
+  .stage video { transition: opacity 1.8s ease-in-out; }
   .stage .on { opacity: 1; }
   .shade {
     position: fixed; inset: 0; z-index: 1; pointer-events: none;
@@ -215,6 +216,7 @@ const CLIPS = [
   { src: "clip1.mp4", caption: "" },
   { src: "clip2.mp4", caption: "" },
   { src: "clip3.mp4", caption: "" },
+  { src: "clip4.mp4", caption: "" },
 ];
 /* ============ EDIT THIS: your projects ============
    Each project appears in the Projects dropdown and gets its own panel.
@@ -245,7 +247,7 @@ const PROJECTS = [
   //   applications: [["Use", "Description"]], url: "https://...", urlLabel: "Visit" },
 ];
 
-const SECONDS_PER_CLIP = 20; // switch scenes after this long if a clip is short
+const SECONDS_PER_CLIP = 20; // longest a clip plays before blending to the next one
 /* ===================================================== */
 
 document.getElementById("yr").textContent = new Date().getFullYear();
@@ -279,38 +281,78 @@ function paint(t) {
 }
 requestAnimationFrame(paint);
 
-/* ---------- Video scenes with crossfade ---------- */
+/* ---------- Video scenes: next clip preloads, then blends in over the current one ---------- */
+const FADE = 1.8; // seconds the clips overlap (keep in sync with the CSS transition on .stage video)
 const vids = [document.getElementById("vidA"), document.getElementById("vidB")];
 const caption = document.getElementById("caption");
 const nextBtn = document.getElementById("next");
-let idx = 0, front = 0, timer = null;
+let idx = 0, front = 0, z = 1, switching = false;
 
-function show(i) {
-  const clip = CLIPS[i];
-  const incoming = vids[1 - front], outgoing = vids[front];
-  incoming.src = clip.src;
-  incoming.loop = CLIPS.length === 1; // a single clip just loops
-  incoming.oncanplay = () => {
-    incoming.oncanplay = null;
-    incoming.play().catch(() => {});
-    incoming.classList.add("on");
-    cv.classList.remove("on");
-    outgoing.classList.remove("on");
-    setTimeout(() => outgoing.pause(), 1900);
-    front = 1 - front;
-    caption.textContent = clip.caption || "";
-    clearTimeout(timer);
-    if (CLIPS.length > 1) timer = setTimeout(advance, SECONDS_PER_CLIP * 1000);
-  };
-  incoming.onended = advance;
-  incoming.onerror = () => { if (CLIPS.length > 1) advance(); };
+function nextIndex() { return (idx + 1) % CLIPS.length; }
+
+/* Load the upcoming clip into the hidden video so it's ready before it's needed */
+function preload() {
+  if (CLIPS.length < 2) return;
+  const v = vids[1 - front];
+  v.loop = false;
+  v.src = CLIPS[nextIndex()].src;
+  v.load();
 }
-function advance() { idx = (idx + 1) % CLIPS.length; show(idx); }
+
+function startFirst() {
+  const v = vids[front];
+  v.loop = CLIPS.length === 1; // a single clip just loops
+  v.src = CLIPS[0].src;
+  v.oncanplay = () => {
+    v.oncanplay = null;
+    v.play().catch(() => {});
+    v.style.zIndex = ++z;
+    v.classList.add("on");
+    setTimeout(() => cv.classList.remove("on"), FADE * 1000 + 100);
+    caption.textContent = CLIPS[0].caption || "";
+    preload();
+  };
+}
+
+/* The new clip fades in ON TOP of the old one (which keeps playing underneath),
+   so there is never a dark dip or a frozen frame between scenes. */
+function crossfade() {
+  if (switching || CLIPS.length < 2) return;
+  switching = true;
+  const outgoing = vids[front], incoming = vids[1 - front];
+  const go = () => {
+    idx = nextIndex();
+    incoming.currentTime = 0;
+    incoming.play().catch(() => {});
+    incoming.style.zIndex = ++z;
+    incoming.classList.add("on");
+    caption.textContent = CLIPS[idx].caption || "";
+    front = 1 - front;
+    setTimeout(() => {
+      outgoing.classList.remove("on");
+      outgoing.pause();
+      switching = false;
+      preload();
+    }, FADE * 1000 + 150);
+  };
+  if (incoming.readyState >= 3) go();
+  else {
+    incoming.oncanplay = () => { incoming.oncanplay = null; go(); };
+    incoming.onerror = () => { switching = false; };
+  }
+}
+
+/* Start blending a little before the current clip ends */
+setInterval(() => {
+  const cur = vids[front];
+  if (CLIPS.length < 2 || switching || reduceMotion || cur.paused || !isFinite(cur.duration)) return;
+  if (cur.duration - cur.currentTime <= FADE + 0.05 || cur.currentTime >= SECONDS_PER_CLIP - FADE) crossfade();
+}, 100);
 
 if (CLIPS.length && !reduceMotion) {
-  show(0);
+  startFirst();
   if (CLIPS.length < 2) nextBtn.hidden = true;
-  nextBtn.addEventListener("click", advance);
+  nextBtn.addEventListener("click", crossfade);
 } else {
   nextBtn.hidden = true;
   if (CLIPS.length) { vids[0].src = CLIPS[0].src; vids[0].classList.add("on"); cv.classList.remove("on"); caption.textContent = CLIPS[0].caption || ""; }
