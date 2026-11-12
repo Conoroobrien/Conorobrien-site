@@ -175,7 +175,6 @@
   <footer>
     <div class="scene">
       <span id="caption"></span>
-      <button id="next" type="button">Next scene</button>
     </div>
     <div>&copy; <span id="yr"></span> Conor O'Brien</div>
   </footer>
@@ -281,16 +280,27 @@ function paint(t) {
 }
 requestAnimationFrame(paint);
 
-/* ---------- Video scenes: next clip preloads, then blends in over the current one ---------- */
+/* ---------- Video scenes: the next clip blends in over the current one ---------- */
 const FADE = 1.8; // seconds the clips overlap (keep in sync with the CSS transition on .stage video)
 const vids = [document.getElementById("vidA"), document.getElementById("vidB")];
 const caption = document.getElementById("caption");
-const nextBtn = document.getElementById("next");
-let idx = 0, front = 0, z = 1, switching = false;
+let idx = 0, front = 0, z = 1, switching = false, blocked = false;
 
 function nextIndex() { return (idx + 1) % CLIPS.length; }
 
-/* Load the upcoming clip into the hidden video so it's ready before it's needed */
+/* Phones can refuse autoplay (Low Power Mode, data saver). If so, start on the first touch. */
+function tryPlay(v) {
+  const pr = v.play();
+  if (pr && pr.catch) pr.catch(() => { blocked = true; });
+}
+function unlock() {
+  if (!blocked) return;
+  blocked = false;
+  tryPlay(vids[front]);
+}
+["touchstart", "click", "keydown"].forEach(ev => addEventListener(ev, unlock, { passive: true }));
+
+/* Point the hidden video at the upcoming clip */
 function preload() {
   if (CLIPS.length < 2) return;
   const v = vids[1 - front];
@@ -303,27 +313,27 @@ function startFirst() {
   const v = vids[front];
   v.loop = CLIPS.length === 1; // a single clip just loops
   v.src = CLIPS[0].src;
-  v.oncanplay = () => {
-    v.oncanplay = null;
-    v.play().catch(() => {});
+  v.addEventListener("playing", () => {
     v.style.zIndex = ++z;
     v.classList.add("on");
     setTimeout(() => cv.classList.remove("on"), FADE * 1000 + 100);
     caption.textContent = CLIPS[0].caption || "";
     preload();
-  };
+  }, { once: true });
+  tryPlay(v);
 }
 
-/* The new clip fades in ON TOP of the old one (which keeps playing underneath),
-   so there is never a dark dip or a frozen frame between scenes. */
+/* The new clip starts playing hidden, then fades in ON TOP of the old one
+   (which keeps playing underneath): no dark dip, no frozen frame. */
 function crossfade() {
   if (switching || CLIPS.length < 2) return;
   switching = true;
   const outgoing = vids[front], incoming = vids[1 - front];
+  let done = false;
   const go = () => {
+    if (done) return;
+    done = true;
     idx = nextIndex();
-    incoming.currentTime = 0;
-    incoming.play().catch(() => {});
     incoming.style.zIndex = ++z;
     incoming.classList.add("on");
     caption.textContent = CLIPS[idx].caption || "";
@@ -335,28 +345,24 @@ function crossfade() {
       preload();
     }, FADE * 1000 + 150);
   };
-  if (incoming.readyState >= 3) go();
-  else {
-    incoming.oncanplay = () => { incoming.oncanplay = null; go(); };
-    incoming.onerror = () => { switching = false; };
-  }
+  try { incoming.currentTime = 0; } catch (e) {}
+  incoming.addEventListener("playing", go, { once: true });
+  tryPlay(incoming);
+  setTimeout(() => { // give up and retry later if the clip never started
+    if (!done) { incoming.removeEventListener("playing", go); incoming.pause(); switching = false; }
+  }, 4000);
 }
 
 /* Start blending a little before the current clip ends */
 setInterval(() => {
   const cur = vids[front];
-  if (CLIPS.length < 2 || switching || reduceMotion || cur.paused || !isFinite(cur.duration)) return;
+  if (CLIPS.length < 2 || switching || cur.paused || !isFinite(cur.duration)) return;
   if (cur.duration - cur.currentTime <= FADE + 0.05 || cur.currentTime >= SECONDS_PER_CLIP - FADE) crossfade();
 }, 100);
+/* Safety net: if a clip ends before the blend ran, move on right away */
+vids.forEach(v => v.addEventListener("ended", () => { if (v === vids[front]) crossfade(); }));
 
-if (CLIPS.length && !reduceMotion) {
-  startFirst();
-  if (CLIPS.length < 2) nextBtn.hidden = true;
-  nextBtn.addEventListener("click", crossfade);
-} else {
-  nextBtn.hidden = true;
-  if (CLIPS.length) { vids[0].src = CLIPS[0].src; vids[0].classList.add("on"); cv.classList.remove("on"); caption.textContent = CLIPS[0].caption || ""; }
-}
+if (CLIPS.length) startFirst();
 
 /* ---------- Panels ---------- */
 let lastTrigger = null;
